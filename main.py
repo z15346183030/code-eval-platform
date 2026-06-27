@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 app = FastAPI(title="Code Eval Platform")
+os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 

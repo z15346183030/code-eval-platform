@@ -1,8 +1,31 @@
 """评测引擎 — 代码正确性和质量评估。"""
 
+import ast
 import json
 from openai import OpenAI
 
+
+
+def _check_code_safety(code: str) -> tuple[bool, str]:
+    """检查代码是否包含危险操作。"""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as e:
+        return False, f"语法错误: {e}"
+
+    dangerous_modules = {"os", "sys", "subprocess", "shutil", "socket", "http", "ftplib",
+                         "ctypes", "importlib", "pathlib", "signal", "multiprocessing"}
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] in dangerous_modules:
+                    return False, f"禁止导入模块: {alias.name}"
+        if isinstance(node, ast.ImportFrom):
+            if node.module and node.module.split(".")[0] in dangerous_modules:
+                return False, f"禁止导入模块: {node.module}"
+
+    return True, ""
 
 def evaluate_model(model_name: str, api_key: str, base_url: str, challenges: list[dict]) -> list[dict]:
     """评测单个模型在多道题目上的表现。"""
@@ -82,6 +105,9 @@ def _evaluate_challenge(client: OpenAI, model_name: str, challenge: dict) -> dic
 def _run_tests(code: str, challenge: dict) -> int:
     """运行测试用例，返回通过数。"""
     namespace = {}
+    safe, msg = _check_code_safety(code)
+    if not safe:
+        return 0
     try:
         exec(code, namespace)
     except Exception:
