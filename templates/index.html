@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Eval Platform</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a; --text: #e4e4e7; --muted: #71717a; --accent: #6366f1; --green: #22c55e; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+        h1 { font-size: 24px; margin-bottom: 24px; }
+        h2 { font-size: 18px; margin: 32px 0 16px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }
+        th { color: var(--muted); font-weight: 500; }
+        .badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+        .badge-easy { background: rgba(34,197,94,0.15); color: var(--green); }
+        .badge-medium { background: rgba(234,179,8,0.15); color: #eab308; }
+        .badge-hard { background: rgba(239,68,68,0.15); color: #ef4444; }
+        input, select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 14px; width: 100%; }
+        .btn { background: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .btn:hover { opacity: 0.9; }
+        .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
+        .form-row > * { flex: 1; }
+        .score { font-size: 20px; font-weight: 700; color: var(--accent); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Code Eval Platform</h1>
+
+        <div class="grid">
+            <div class="card">
+                <h2>🏆 排行榜</h2>
+                <table>
+                    <tr><th>排名</th><th>模型</th><th>最高分</th><th>评测次数</th></tr>
+                    {% for entry in leaderboard|sort(attribute='best_score', reverse=True) %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ entry.model_name }}</td>
+                        <td class="score">{{ entry.best_score }}</td>
+                        <td>{{ entry.eval_count }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not leaderboard %}
+                    <tr><td colspan="4" style="color:var(--muted);text-align:center;">暂无数据</td></tr>
+                    {% endif %}
+                </table>
+            </div>
+
+            <div class="card">
+                <h2>🚀 发起评测</h2>
+                <form id="evalForm">
+                    <div class="form-row">
+                        <input type="text" id="modelName" placeholder="模型名称 (如 gpt-4o)" required>
+                    </div>
+                    <div class="form-row">
+                        <input type="password" id="apiKey" placeholder="API Key" required>
+                    </div>
+                    <div class="form-row">
+                        <input type="text" id="baseUrl" placeholder="Base URL (默认 OpenAI)" value="https://api.openai.com/v1">
+                    </div>
+                    <button type="submit" class="btn" style="width:100%">开始评测</button>
+                </form>
+            </div>
+        </div>
+
+        <h2>📝 题目列表</h2>
+        <div class="card">
+            <table>
+                <tr><th>ID</th><th>题目</th><th>难度</th><th>描述</th></tr>
+                {% for c in challenges %}
+                <tr>
+                    <td>{{ c.id }}</td>
+                    <td>{{ c.name }}</td>
+                    <td><span class="badge badge-{{ c.difficulty }}">{{ c.difficulty }}</span></td>
+                    <td>{{ c.description }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <h2>📜 最近评测</h2>
+        <div class="card">
+            <table>
+                <tr><th>时间</th><th>模型</th><th>平均分</th><th>题目数</th></tr>
+                {% for e in evaluations|reverse %}
+                <tr>
+                    <td>{{ e.timestamp }}</td>
+                    <td>{{ e.model_name }}</td>
+                    <td class="score">{{ e.avg_score }}</td>
+                    <td>{{ e.results|length }}</td>
+                </tr>
+                {% endfor %}
+                {% if not evaluations %}
+                <tr><td colspan="4" style="color:var(--muted);text-align:center;">暂无数据</td></tr>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('evalForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.textContent = '评测中...';
+            btn.disabled = true;
+
+            const resp = await fetch('/api/evaluate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    model_name: document.getElementById('modelName').value,
+                    api_key: document.getElementById('apiKey').value,
+                    base_url: document.getElementById('baseUrl').value,
+                }),
+            });
+
+            if (resp.ok) {
+                location.reload();
+            } else {
+                alert('评测失败');
+                btn.textContent = '开始评测';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
